@@ -1,8 +1,10 @@
-% 6 trusses are created and tested for an identical load case (a central
+%%AnalysisOfTrussMacrostructure.m
+
+% Six trusses are created and tested for an identical load case (a central
 % load). The relative costs of each are compared
 
-% Programwide Constants
 clear all; clc; close all;
+% Programwide Constants
 iSteps = 20000;
 rLearningRate = 5e-6;
 

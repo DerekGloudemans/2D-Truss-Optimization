@@ -1,11 +1,18 @@
 classdef Optimizer < handle
          
-    % Declare static member functions here
+    % Optimizer- given an input vector of parameters raParameters 
+    % corresponding to object oProblem with a cost function, optimizer uses
+    % gradient descent to find values for raParameters to minimize the cost
+    % function
+ 
+    
+    %-------------------------STATIC METHODS------------------------------%
+    
     methods(Static)
-              
+        
         %% Run
         % Invoke this function to solve the optimization
-        % problem.
+        % problem using gradient descent
         function [raParameters, raCost] = Run(oProblem, raParameters, iSteps, rLearningRate)
                        
             % Create empty cost vector
@@ -28,7 +35,8 @@ classdef Optimizer < handle
                 end
                 raCost(iStep);
                 
-                %Comment this block to supress early cutoff of optimization
+                % Comment this block to supress early cutoff of optimization
+                % when incremental improvement is sufficiently small
                 if iStep > 100
                     if raCost(iStep)/raCost(iStep-100) > 0.9995
                         break; %break for
@@ -40,7 +48,7 @@ classdef Optimizer < handle
         end % function
         
         %% Gradient
-        % Compute the gradient numerically.
+        % Compute the gradient numerically
         
         function [raGradient] = Gradient(oProblem, raParameters)
         
@@ -72,43 +80,7 @@ classdef Optimizer < handle
             end % for          
             
         end % function
-        
-         %% Run2
-        % Invoke this function to solve the optimization
-        % problem with member deletion.
-        function [raParameters, raCost] = Run2(oProblem, raParameters, iSteps, rLearningRate)
-                       
-            % Create empty cost vector
-            raCost = zeros(iSteps,1);
-           
-            % For each step...
-            for iStep = 1:iSteps
-                                              
-                % Compute the gradient given the parameters
-                [raGradient] = Optimizer.Gradient(oProblem, raParameters); 
-                
-                % Step downhill (use this order so cost is evaluated with final parameters) 
-                raParameters = raParameters - raGradient*rLearningRate;
-                
-                % Compute the cost 
-                [raCost(iStep)] = Cost(oProblem, raParameters);                
-                if mod(iStep,100) == 1
-                    SketchTruss(oProblem);
-                end
-                raCost(iStep)
-                
-                %Comment this block to supress early cutoff of optimization
-                if iStep > 100
-                    if raCost(iStep)/raCost(iStep-100) > 0.99995
-                        break; %break for
-                    end
-                end % end if
-                
-            end % for
-            
-        end % function
-        
-        
+          
     end % methods
     
 end % classdef

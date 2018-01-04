@@ -1,29 +1,23 @@
 classdef Truss < matlab.mixin.Copyable %handle
+    
     % Truss- a 2D simple truss on which stiffness matrix method analysis and
     % related functions can be performed
     
-    % m- number of raNodes
-    % n- number of raMembers
-    
-    % Variable Notation
-    % r.. - real noninteger
-    % n.. - integer
-    % b.. - boolean
-    % a.. - array
-    % i,j,k- iterator variable
-
     
     %----------------------------PROPERTIES-------------------------------%
     
     properties
+        % (m - number of nodes)
+        % (n - number of members)
+        
         %   raNodes- an mx2 matrix of xcoords and ycoords for each node
         %   raMembers- an nx2 matrix of start and end node for each member
         %   raMemberXC- an nx1 matrix of XC area for each member
         %   raNodeLock- an mx2 matrix which indicates whether the position of the
-        %             node may be altered along each degree of freedom (1 = yes, 0 = no)
+        %       node may be altered along each degree of freedom (1 = yes, 0 = no)
         %   raLoads- a 1x(2m-4) matrix of raLoads applied to each degree of freedom
-        %          degrees of freedom for node 1 are 1 and 2, 3 and 4 for node
-        %          2, etc.
+        %       degrees of freedom for node 1 are 1 and 2, 3 and 4 for node
+        %       2, etc.
         raNodes;
         raNodeLock;
         raMemberXC;
@@ -33,10 +27,8 @@ classdef Truss < matlab.mixin.Copyable %handle
     end
     
     properties(Constant)
-        % rAreaScaling- scales XC areas so that scale is similar to that of
-            % XY node coordinates (for better gradient descent performance)
+        
         % nNumReactions- set to 3 for pin-roller, or 4 for pin-pin truss
-        rAreaScaling = 100;
         nNumReactions = 3;
         
             % (Properties for 1018 Steel - For analysis of many materials, 
@@ -60,6 +52,9 @@ classdef Truss < matlab.mixin.Copyable %handle
         l = 100000;
         d = 0;
         
+        % rAreaScaling- scales XC areas so that scale is similar to that of
+            % XY node coordinates (for better gradient descent performance)
+        rAreaScaling = 100;
     end
     
     
@@ -67,6 +62,7 @@ classdef Truss < matlab.mixin.Copyable %handle
     
     methods
         
+       %% Truss (Constructor)
         % Returns a truss object with user-input raNodes, raNodeLock,
             % raMembers, raMemberXCs and raLoads
         function [obj] = Truss(n,nl,m,mxc,lo)
@@ -78,11 +74,115 @@ classdef Truss < matlab.mixin.Copyable %handle
            
         end
         
+        %% Cost
+        % Returns the cost of a truss after updating Truss parameters from
+        % input vector 
+        % (This method is designed to be used with Optimizer Class to 
+        % iteratively update trusses)
+        function [rCost] = Cost(obj,raParams)
+            % overwrites parameters with input values
+            % input values are in a ?x1 vector; for-loops reasign these 
+            % values to correct parameters
+            k = 1;
+            for i = 1:size(obj.raNodeLock,1)
+                if obj.raNodeLock(i,1) == 1
+                    obj.raNodes(i,1) = raParams(k);
+                    k = k+1;
+                end
+                if obj.raNodeLock(i,2) == 1
+                    obj.raNodes(i,2) = raParams(k);
+                    k = k+1;
+                end
+            end
+            for j = 1:length(obj.raMemberXC)
+                obj.raMemberXC(j) = raParams(k)/obj.rAreaScaling;
+                k = k + 1;
+            end
+            
+            rCost = obj.InternalCostFunction();
+         
+        end % function
+        
+        %% GetParameters
+        % Creates a parameter vector from existing truss configuration
+        function [raParams] = GetParameters(obj)
+            k = 1;
+            for i = 1:length(obj.raNodeLock)
+                if obj.raNodeLock(i,1) == 1
+                    raParams(k) = obj.raNodes(i,1);
+                    k = k + 1;
+                end
+                if obj.raNodeLock(i,2) == 1
+                    raParams(k) = obj.raNodes(i,2);
+                    k = k + 1;
+                end
+            end
+            for j = 1:length(obj.raMemberXC)
+                raParams(k)= obj.raMemberXC(j)*obj.rAreaScaling;
+                k = k + 1;
+            end
+        end % function
+        
+         %% InternalCostFunction
+        % Returns the cost of the truss 
+            % Contains additional costs in order to impose constraints on
+            % minimum member XC area, maximum member length, minimum buckling
+            % and yield factors of safety
+        function [rCost] = InternalCostFunction(obj)
+            [raDisplacements,~,raMemberForces] = obj.StiffnessMethod();
+
+            % Find max - deflection
+            rMaxDisp = obj.MaxVertDisplacement(raDisplacements);
+
+            % Find member weights
+            rTrussWeight = obj.TrussWeight();
+
+            % Cost
+            rCostRaw = rTrussWeight*5000 + rMaxDisp * 3000000;
+
+            %Yield Check
+            raYields = obj.y/min(obj.MemberYieldCheck(raMemberForces))^15;
+            % Buckling Check
+            raBuckles = obj.b/min(obj.MemberBucklingCheck(raMemberForces))^15;
+            % Positive Area Check
+            raArea = obj.a/min(obj.raMemberXC)^5;
+            % Max Length Check
+            raLengths = obj.l.*log(exp(10*(obj.MemberLengths()-35.7))+1);
+            rLength= sum(raLengths); 
+            
+            rDepth = max(obj.raNodes(:,2)) - min (obj.raNodes(:,2));
+            rDepthCost = obj.d*log(exp(4*(rDepth-14.25))+1);
+                     
+            rCost = rCostRaw + raYields + raBuckles + raArea +rLength + rDepthCost;
+            
+        end % function
+         
+        %% MaxVertDisplacement
+        % Returns the maximum negative vertical displacement 
+        function [rMaxDisp] = MaxVertDisplacement(obj,displacements)
+            raEvens = 2:2:size(obj.raNodes,1);
+            rMaxDisp = -min(displacements(raEvens));
+        end
+        
+        %% MemberLengths
         % Returns a nx1 matrix of member lengths
         function [ raMemLengths ] = MemberLengths (obj)
             raMemLengths = ((obj.raNodes(obj.raMembers(:,1),1)-obj.raNodes(obj.raMembers(:,2),1)).^2 + (obj.raNodes(obj.raMembers(:,1),2)-obj.raNodes(obj.raMembers(:,2),2)).^2).^.5;
         end
         
+        %% MemberBucklingCheck
+        % Returns an nx1 matrix with member buckling factors of safety
+        % i.e. max force before buckling/actual force
+        function [ raBucklingFoS ] = MemberBucklingCheck(obj,memberForces)
+
+            raSmallMat = 1e-10 *ones(size(memberForces,1),1);
+            raRemoveTensionForces = abs(min(raSmallMat,memberForces));
+            raRadius = (obj.raMemberXC+1/256)*8/pi;
+            raBucklingFailureLoads = obj.E.*(raRadius.^4*pi/4)./(obj.MemberLengths().^2);
+            raBucklingFoS = raBucklingFailureLoads./raRemoveTensionForces;
+        end  
+        
+        %% MemberWeights
         % Returns a nx1 matrix of member weights
         function [ raMemWeights ] = MemberWeights(obj)
    
@@ -91,6 +191,60 @@ classdef Truss < matlab.mixin.Copyable %handle
 
         end
         
+        %% MemberYieldCheck
+        % Returns an nx1 matrix with member yielding factors of safety
+        function [ raYieldFoS ] = MemberYieldCheck(obj,memberForces)
+      
+            raMemStress = abs(memberForces)./obj.raMemberXC;
+            raYieldFoS = obj.rYieldStrength./raMemStress;
+        end
+        
+        %% SketchDeformed Truss
+        % Sketches original and deformed truss
+        function SketchDeformedTruss(obj)
+                
+            figure;
+            hold on;
+            axis equal;
+            title("Deformed Truss: 100x Deflection");
+            xlabel("inches");
+            ylabel("inches");
+            [nodeDisplacements,~,~] = obj.StiffnessMethod();
+            raXYDisplacements = 100*reshape(nodeDisplacements, [2,size(obj.raNodes,1)])';
+            raXYNew = obj.raNodes + raXYDisplacements;
+
+            for i = 1:size(obj.raMembers,1)
+                plot([obj.raNodes(obj.raMembers(i,1),1) obj.raNodes(obj.raMembers(i,2),1)],[obj.raNodes(obj.raMembers(i,1),2) obj.raNodes(obj.raMembers(i,2),2)],'k');
+            end
+
+            for i = 1:size(obj.raMembers,1)
+                plot([raXYNew(obj.raMembers(i,1),1) raXYNew(obj.raMembers(i,2),1)],[raXYNew(obj.raMembers(i,1),2) raXYNew(obj.raMembers(i,2),2)],'b--');
+            end
+                
+                
+        end % function
+        
+        %% SketchTruss
+        % Sketches truss, with differences in member XC
+        % area exaggerated
+        function SketchTruss(obj)
+            
+            
+            hold off;
+            for i = 1:size(obj.raMembers,1)
+                plot([obj.raNodes(obj.raMembers(i,1),1) obj.raNodes(obj.raMembers(i,2),1)],[obj.raNodes(obj.raMembers(i,1),2) obj.raNodes(obj.raMembers(i,2),2)],'k', 'LineWidth', (obj.raMemberXC(i)-min(obj.raMemberXC())+.01)*30);
+                hold on;
+            end
+            hold off;
+            axis equal;
+            title("Truss");
+            xlabel("inches");
+            ylabel("inches");
+            drawnow;
+        
+        end
+        
+        %% StiffnessMethod
         % Analyzes truss with matrix stiffness method
         % Returns node displacements, reaction forces and member forces    
         function [ raNodeDisplacements,raReactionForces,raMemberForces ] = StiffnessMethod(obj)
@@ -155,156 +309,11 @@ classdef Truss < matlab.mixin.Copyable %handle
             
         end % function
         
-        % Returns an nx1 matrix with member buckling factors of safety
-        function [ raBucklingFoS ] = MemberBucklingCheck(obj,memberForces)
-
-            raSmallMat = 1e-10 *ones(size(memberForces,1),1);
-            raRemoveTensionForces = abs(min(raSmallMat,memberForces));
-            raRadius = (obj.raMemberXC+1/256)*8/pi;
-            raBucklingFailureLoads = obj.E.*(raRadius.^4*pi/4)./(obj.MemberLengths().^2);
-            raBucklingFoS = raBucklingFailureLoads./raRemoveTensionForces;
-        end
-        
-        % Returns an nx1 matrix with member yielding factors of safety
-        function [ raYieldFoS ] = MemberYieldCheck(obj,memberForces)
-      
-            raMemStress = abs(memberForces)./obj.raMemberXC;
-            raYieldFoS = obj.rYieldStrength./raMemStress;
-        end
-        
-        % Sketches original and deformed truss
-        function SketchDeformedTruss(obj)
-                
-            figure;
-            hold on;
-            axis equal;
-            title("Deformed Truss: 100x Deflection");
-            xlabel("inches");
-            ylabel("inches");
-            [nodeDisplacements,~,~] = obj.StiffnessMethod();
-            raXYDisplacements = 100*reshape(nodeDisplacements, [2,size(obj.raNodes,1)])';
-            raXYNew = obj.raNodes + raXYDisplacements;
-
-            for i = 1:size(obj.raMembers,1)
-                plot([obj.raNodes(obj.raMembers(i,1),1) obj.raNodes(obj.raMembers(i,2),1)],[obj.raNodes(obj.raMembers(i,1),2) obj.raNodes(obj.raMembers(i,2),2)],'k');
-            end
-
-            for i = 1:size(obj.raMembers,1)
-                plot([raXYNew(obj.raMembers(i,1),1) raXYNew(obj.raMembers(i,2),1)],[raXYNew(obj.raMembers(i,1),2) raXYNew(obj.raMembers(i,2),2)],'b--');
-            end
-                
-                
-        end % function
-        
-        % Sketches truss, with differences in member XC
-        % area exaggerated
-        function SketchTruss(obj)
-            
-            
-            hold off;
-            for i = 1:size(obj.raMembers,1)
-                plot([obj.raNodes(obj.raMembers(i,1),1) obj.raNodes(obj.raMembers(i,2),1)],[obj.raNodes(obj.raMembers(i,1),2) obj.raNodes(obj.raMembers(i,2),2)],'k', 'LineWidth', (obj.raMemberXC(i)-min(obj.raMemberXC())+.01)*30);
-                hold on;
-            end
-            hold off;
-            axis equal;
-            title("Truss");
-            xlabel("inches");
-            ylabel("inches");
-            drawnow;
-        
-        end
-        
-        % Returns the maximum negative vertical displacement 
-        function [rMaxDisp] = MaxVertDisplacement(obj,displacements)
-            raEvens = 2:2:size(obj.raNodes,1);
-            rMaxDisp = -min(displacements(raEvens));
-        end
-        
+        %% TrussWeight
         % Returns the total truss weight
         function [rTrussWeight] = TrussWeight(obj)
             rTrussWeight = sum(obj.MemberWeights());
-        end
-        
-        % Returns the cost of the truss 
-            % Contains additional costs in order to impose constraints on
-            % minimum member XC area, maximum member length, minimum buckling
-            % and yield factors of safety
-        function [rCost] = InternalCostFunction(obj)
-            [raDisplacements,~,raMemberForces] = obj.StiffnessMethod();
-
-            % Find max - deflection
-            rMaxDisp = obj.MaxVertDisplacement(raDisplacements);
-
-            % Find member weights
-            rTrussWeight = obj.TrussWeight();
-
-            % Cost
-            rCostRaw = rTrussWeight*5000 + rMaxDisp * 3000000;
-
-            %Yield Check
-            raYields = obj.y/min(obj.MemberYieldCheck(raMemberForces))^15;
-            % Buckling Check
-            raBuckles = obj.b/min(obj.MemberBucklingCheck(raMemberForces))^15;
-            % Positive Area Check
-            raArea = obj.a/min(obj.raMemberXC)^5;
-            % Max Length Check
-            raLengths = obj.l.*log(exp(10*(obj.MemberLengths()-35.7))+1);
-            rLength= sum(raLengths); 
-            
-            rDepth = max(obj.raNodes(:,2)) - min (obj.raNodes(:,2));
-            rDepthCost = obj.d*log(exp(4*(rDepth-14.25))+1);
-                     
-            rCost = rCostRaw + raYields + raBuckles + raArea +rLength + rDepthCost;
-            
-        end % function
-
-        % Returns the cost of a truss after updating Truss parameters from
-        % input vector 
-        % (This method is designed to be used with Optimizer Class to 
-        % iteratively update trusses)
-        function [rCost] = Cost(obj,raParams)
-            % overwrites parameters with input values
-            % input values are in a ?x1 vector; for-loops reasign these 
-            % values to correct parameters
-            k = 1;
-            for i = 1:size(obj.raNodeLock,1)
-                if obj.raNodeLock(i,1) == 1
-                    obj.raNodes(i,1) = raParams(k);
-                    k = k+1;
-                end
-                if obj.raNodeLock(i,2) == 1
-                    obj.raNodes(i,2) = raParams(k);
-                    k = k+1;
-                end
-            end
-            for j = 1:length(obj.raMemberXC)
-                obj.raMemberXC(j) = raParams(k)/obj.rAreaScaling;
-                k = k + 1;
-            end
-            
-            rCost = obj.InternalCostFunction();
-         
-        end % function
-        
-        % Creates a parameter vector from existing truss configuration
-        function [raParams] = GetParameters(obj)
-            k = 1;
-            for i = 1:length(obj.raNodeLock)
-                if obj.raNodeLock(i,1) == 1
-                    raParams(k) = obj.raNodes(i,1);
-                    k = k + 1;
-                end
-                if obj.raNodeLock(i,2) == 1
-                    raParams(k) = obj.raNodes(i,2);
-                    k = k + 1;
-                end
-            end
-            for j = 1:length(obj.raMemberXC)
-                raParams(k)= obj.raMemberXC(j)*obj.rAreaScaling;
-                k = k + 1;
-            end
-        end % function
+        end             
             
     end % methods
     
