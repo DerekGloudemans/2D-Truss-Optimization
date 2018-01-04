@@ -6,10 +6,11 @@ The matrix stiffness method is used to analyze trusses for first-order member fo
 is used to optimize the competition-defined cost function over a set of the truss's parameters.
 
 Project variable notation:
-r - real noninteger
-n - integer
-b - boolean
-a - array
+
+r - real noninteger, 
+n - integer, 
+b - boolean, 
+a - array, 
 i,j,k- iterator variable
 
 Files:
@@ -126,16 +127,17 @@ into the constructor. These properties are listed and explained below:
                7  14 XC1;
                8  15 XC1];
 
-    % first value of raLoads indicates load on node 1 in x-direction
-    % second value indicates load on node 1 in y-direction
-    % third value indicates load on node 2 in x-direction, etc.
-    % raLoads is (2m-3) x 1; since three of the four loads for the 
-    % support nodes (the last 2 nodes) are omitted (since there 
-    % cannot be loads on the truss in these locations)    
+The first value of raLoads indicates load on node 1 in x-direction. The 
+second value indicates load on node 1 in y-direction. The third value 
+indicates load on node 2 in x-direction, etc. raLoads is (2m-3) x 1; since 
+three of the four loads for the support nodes (the last 2 nodes) are 
+omitted as there cannot be loads on the truss in these locations or the 
+loads would be transferred directly to the supports.
+
     raLoads = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -600 0 -1200 0 -600 0 0 0 0 0];
 
 
-Truss object is now created
+Truss object is now created.
           
 truss1 = Truss(raNodes,raNodeLock,raMembers(:,1:2),raMembers(:,3),raLoads);
 
