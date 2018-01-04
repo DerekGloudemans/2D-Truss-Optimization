@@ -29,8 +29,8 @@ distinguish comments from lines of code:
 
 
 
-% By default, every Truss object has the following constant properties. 
-% These properties can only changed by modifiying the Truss class:
+By default, every Truss object has the following constant properties. 
+These properties can only changed by modifiying the Truss class:
 
     nNumReactions = 3; %(Default (for pin-roller support) is 3; set to 4 for pin-pin)
     E = 2.9 * 10^7 %(Elastic Modulus, psi (default material is steel)) 
@@ -47,8 +47,8 @@ distinguish comments from lines of code:
     rAreaScaling = 100 %(scales XC areas so that the scale is similar to that of 
                     %XY node coordinates (for better gradient descent performance)
 
-% The other object properties must be defined for each truss and are input 
-% into the constructor. These properties are listed and explained below:
+The other object properties must be defined for each truss and are input 
+into the constructor. These properties are listed and explained below:
 
     raNodes = [...
 
@@ -135,26 +135,31 @@ distinguish comments from lines of code:
     raLoads = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -600 0 -1200 0 -600 0 0 0 0 0];
 
 
-% Truss object is now created          
+Truss object is now created
+          
 truss1 = Truss(raNodes,raNodeLock,raMembers(:,1:2),raMembers(:,3),raLoads);
 
 
-% raParameters condenses all the modifiable parameters (i.e. the node 
-% coordinates in unlocked directions and the member areas) into one vector
+raParameters condenses all the modifiable parameters (i.e. the node 
+coordinates in unlocked directions and the member areas) into one vector
+
 raParameters = truss1.GetParameters();
 
 
-% iSteps defines the number of gradient descent steps that will be performed
+iSteps defines the number of gradient descent steps that will be performed
+
 iSteps = 20000;
 
-% rLearningRate defines alpha, the learning rate for gradient descent
+rLearningRate defines alpha, the learning rate for gradient descent
+
 rLearningRate = 5e-6;
 
-% The Truss, the list of changeable parameters, and the gradient descent 
-% parameters are input into the optimizer
+The Truss, the list of changeable parameters, and the gradient descent 
+parameters are input into the optimizer
+
 [raParameters, raCost] = Optimizer.Run(truss1, raParameters,iSteps, rLearningRate);
 
 
-% The optimized Truss over raParameters is returned by Optimizer.Run().
-% Optimizer also sketches the Truss over time during the optimization, and
-% plots the cost function of the truss over time.
+The optimized Truss over raParameters is returned by Optimizer.Run().
+Optimizer also sketches the Truss over time during the optimization, and
+plots the cost function of the truss over time.
