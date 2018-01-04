@@ -127,12 +127,13 @@ into the constructor. These properties are listed and explained below:
                7  14 XC1;
                8  15 XC1];
 
-The first value of raLoads indicates load on node 1 in x-direction. The 
-second value indicates load on node 1 in y-direction. The third value 
-indicates load on node 2 in x-direction, etc. raLoads is (2m-3) x 1; since 
-three of the four loads for the support nodes (the last 2 nodes) are 
-omitted as there cannot be loads on the truss in these locations or the 
-loads would be transferred directly to the supports.
+The first value of raLoads indicates the load on node 1 in x-direction. The 
+second value indicates the load on node 1 in y-direction. The third value 
+indicates the load on node 2 in x-direction, and so on. raLoads is (2m-3) x 1, since 
+any degree of freedom at which a support acts are omitted. There cannot be loads on
+the truss in these locations or the loads would be transferred directly to the supports. 
+In practice, the y-direction of the second-to-last node and both directions of the last
+node are constrained by supports.
 
     raLoads = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -600 0 -1200 0 -600 0 0 0 0 0];
 
