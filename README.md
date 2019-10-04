@@ -1,34 +1,34 @@
 # 2D-Truss-Optimization
 
-Description:
-This project was created to aid in design of a truss for the annual ASCE/AISC student steel bridge competition
-The matrix stiffness method is used to analyze trusses for first-order member forces and deflections, and gradient descent
-is used to optimize the competition-defined cost function over a set of the truss's parameters.
+![](readme_ims/deformed.jpg)
+
+This project was created to aid in design of a truss for the 2018 annual ASCE/AISC student steel bridge competition. The matrix stiffness method is used to analyze trusses for first-order member forces and deflections, and gradient descent
+is used to optimize the competition-defined cost function over a set of the truss's parameters. 
+
+![](readme_ims/truss.gif)
+
+The nuts and bolts of using the repository are detailed below:
 
 Project variable notation:
-
-r - real noninteger, 
-n - integer, 
-b - boolean, 
-a - array, 
-i,j,k- iterator variable
+- r - real noninteger, 
+- n - integer, 
+- b - boolean, 
+- a - array, 
+- i,j,k- iterator variable
 
 Files:
-Truss.m contains a Matlab class used to represent a physical 2D truss as 
+- Truss.m contains a Matlab class used to represent a physical 2D truss as 
         node coordinates and member cross sections 
-Optimizer.m contains a Matlab class used to create an optimization routine 
+- Optimizer.m contains a Matlab class used to create an optimization routine 
         for a Truss object
-AnalysisOfTrussMacrostructure.m is an example script that optimizes several 
+- AnalysisOfTrussMacrostructure.m is an example script that optimizes several 
         input truss configurations in search of a minimal cost truss 
 
 Example:
-Run the static method TrialDesign in the Truss class(input 
+
+Run the static method TrialDesign() in the Truss class(input 
 Truss.TrialDesign() into the command window). The truss defined in 
-TrialDesign is examined in detail below. For clarity, % will be used to 
-distinguish comments from lines of code:
-
-
-
+TrialDesign is examined in detail below. 
 
 By default, every Truss object has the following constant properties. 
 These properties can only changed by modifiying the Truss class:
@@ -140,27 +140,27 @@ node are constrained by supports.
 
 Truss object is now created.
           
-truss1 = Truss(raNodes,raNodeLock,raMembers(:,1:2),raMembers(:,3),raLoads);
+    truss1 = Truss(raNodes,raNodeLock,raMembers(:,1:2),raMembers(:,3),raLoads);
 
 
 raParameters condenses all the modifiable parameters (i.e. the node 
 coordinates in unlocked directions and the member areas) into one vector
 
-raParameters = truss1.GetParameters();
+    raParameters = truss1.GetParameters();
 
 
 iSteps defines the number of gradient descent steps that will be performed
 
-iSteps = 20000;
+    iSteps = 20000;
 
 rLearningRate defines alpha, the learning rate for gradient descent
 
-rLearningRate = 5e-6;
+    rLearningRate = 5e-6;
 
 The Truss, the list of changeable parameters, and the gradient descent 
 parameters are input into the optimizer
 
-[raParameters, raCost] = Optimizer.Run(truss1, raParameters,iSteps, rLearningRate);
+    [raParameters, raCost] = Optimizer.Run(truss1, raParameters,iSteps, rLearningRate);
 
 
 The optimized Truss over raParameters is returned by Optimizer.Run().
